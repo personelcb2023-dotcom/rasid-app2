@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>راصد الانتخابات - متابعة النتائج ونسبة المشاركة والأحزاب</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #0f766e;
+      --primary-dark: #115e59;
+      --primary-light: #ccfbf1;
+      --accent: #0284c7;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --rnd: #3b82f6;
+      --fln: #ef4444;
+      --mcn: #10b981;
+      --hams: #f59e0b;
+    }
+    * { box-sizing: border-box; font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: linear-gradient(135deg, #0f766e 0%, #0e7490 100%);
+      color: #fff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: rgba(255,255,255,0.18);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 900;
+    }
+    .brand h1 { margin: 0; font-size: 18px; font-weight: 800; line-height: 1.2; }
+    .brand span { font-size: 11px; opacity: 0.88; display: block; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 700;
+      background: rgba(255,255,255,0.18);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; }
+    .dot.online { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .dot.error { background: #f87171; }
+
+    main {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    @media (min-width: 640px) {
+      .role-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .role-btn {
+      border: 2px solid var(--border);
+      background: #fff;
+      border-radius: 16px;
+      padding: 22px 18px;
+      text-align: right;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .role-btn:hover, .role-btn:active {
+      border-color: var(--primary);
+      background: #f0fdfa;
+      transform: translateY(-2px);
+    }
+    .role-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      width: fit-content;
+    }
+    .role-btn h3 { margin: 0; font-size: 19px; font-weight: 800; color: var(--text); }
+    .role-btn p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-whatsapp { background: #16a34a; color: #fff; }
+    .btn-outline { background: #fff; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+
+    .input-group { margin-bottom: 14px; }
+    .input-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .input-control {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-control:focus { border-color: var(--primary); }
+
+    .room-box {
+      background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+      border: 1.5px dashed #0d9488;
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+    }
+    .room-code-display {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: var(--primary-dark);
+      margin: 6px 0;
+      direction: ltr;
+    }
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin: 12px auto;
+      padding: 10px;
+      background: #fff;
+      border-radius: 12px;
+      width: fit-content;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .stat-card .val { font-size: 22px; font-weight: 900; color: var(--primary); line-height: 1.2; }
+    .stat-card .lbl { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 4px; }
+
+    .party-counter-card {
+      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .party-info h4 { margin: 0; font-size: 16px; font-weight: 800; }
+    .party-info span { font-size: 12px; color: var(--muted); }
+    .party-controls { display: flex; align-items: center; gap: 8px; }
+    .p-btn {
+      width: 42px; height: 42px; border-radius: 10px; border: none;
+      font-size: 18px; font-weight: 900; cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .p-btn:active { transform: scale(0.95); }
+    .p-val { font-size: 20px; font-weight: 900; min-width: 45px; text-align: center; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 700; font-size: 11px; }
+    .feed-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 100;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    .link-box {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #0f172a;
+      word-break: break-all;
+      direction: ltr;
+      text-align: left;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">✓</div>
+    <div>
+      <h1>راصد الانتخابات</h1>
+      <span>المشاركة وأصوات الأحزاب (RND, FLN, MCN, HAMS)</span>
+    </div>
+  </div>
+  <div id="connStatus" class="status-pill">
+    <span id="connDot" class="dot"></span>
+    <span id="connText">غير متصل</span>
+  </div>
+</header>
+
+<main>
+  <!-- شاشة اختيار الدور -->
+  <section id="viewHome" class="card">
+    <h2 style="margin-top:0; font-size:20px;">اختر وضع التشغيل على هذا الهاتف</h2>
+    <p style="color:var(--muted); font-size:14px; margin-top:-6px;">نظام مراقبة متكامل لـ 4 مكاتب وإجمالي 1200 ناخب مسجل مع 4 أحزاب (RND, FLN, MCN, HAMS).</p>
+
+    <div class="role-grid">
+      <button class="role-btn" onclick="startSupervisor()">
+        <span class="role-badge">الهاتف الرئيسي</span>
+        <h3>1. غرفة المتابعة (المشرف)</h3>
+        <p>متابعة نسبة المشاركة الإجمالية، وتوزيع أصوات الأحزاب بين المكاتب الأربعة، ورسوم بيانية فورية.</p>
+      </button>
+
+      <button class="role-btn" onclick="showObserverJoin()">
+        <span class="role-badge" style="background:#e0f2fe; color:#0369a1;">هاتف المكتب</span>
+        <h3>2. هاتف مراقب المكتب</h3>
+        <p>الاتصال بغرفة المشرف عبر الكود أو الرابط المباشر، وتسجيل أصوات الناخبين والأحزاب للمكتب المخصص.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- شاشة المشرف -->
+  <section id="viewSupervisor" class="hidden">
+    <div class="card room-box">
+      <div style="font-size:13px; font-weight:700; color:var(--primary-dark);">رمز غرفة المتابعة</div>
+      <div id="supRoomCode" class="room-code-display">----</div>
+      <div id="qrcode"></div>
+      <p style="font-size:12px; color:var(--muted); margin:6px 0 4px;">امسح الرمز بكاميرا هاتف المراقب أو شارك رابط الربط المباشر:</p>
+      <div id="inviteLinkBox" class="link-box">...</div>
+      <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn btn-whatsapp btn-sm" onclick="shareWhatsApp()">مشاركة عبر واتساب</button>
+        <button class="btn btn-outline btn-sm" onclick="copyInviteLink()">نسخ الرابط</button>
+        <button class="btn btn-outline btn-sm" onclick="resetApp()">تغيير الوضع</button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div id="totPct" class="val">0.0%</div>
+        <div class="lbl">نسبة المشاركة</div>
+      </div>
+      <div class="stat-card">
+        <div id="totVotes" class="val">0 / 1200</div>
+        <div class="lbl">إجمالي المصوتين</div>
+      </div>
+      <div class="stat-card">
+        <div id="activeOfficesCount" class="val">0 / 4</div>
+        <div class="lbl">المكاتب النشطة</div>
+      </div>
+    </div>
+
+    <!-- بطاقات نتائج الأحزاب الإجمالية -->
+    <div class="card">
+      <h3 style="margin-top:0; font-size:16px;">إجمالي أصوات الأحزاب</h3>
+      <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;" id="partySummaryGrid">
+        <div class="stat-card" style="border-right:4px solid var(--rnd)">
+          <div id="sumRnd" class="val" style="color:var(--rnd)">0</div>
+          <div class="lbl">RND (التجمع الوطني الديمقراطي)</div>
+        </div>
+        <div class="stat-card" style="border-right:4px solid var(--fln)">
+          <div id="sumFln" class="val" style="color:var(--fln)">0</div>
+          <div class="lbl">FLN (جبهة التحرير الوطني)</div>
+        </div>
+        <div class="stat-card" style="border-right:4px solid var(--mcn)">
+          <div id="sumMcn" class="val" style="color:var(--mcn)">0</div>
+          <div class="lbl">MCN (المجتمع المدني/أحرار)</div>
+        </div>
+        <div class="stat-card" style="border-right:4px solid var(--hams)">
+          <div id="sumHams" class="val" style="color:var(--hams)">0</div>
+          <div class="lbl">HAMS (حركة مجتمع السلم)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0; font-size:16px;">تفاصيل المكاتب الأربعة</h3>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">تصدير CSV</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>المكتب</th>
+              <th>المصوتين</th>
+              <th>RND</th>
+              <th>FLN</th>
+              <th>MCN</th>
+              <th>HAMS</th>
+              <th>النسبة</th>
+            </tr>
+          </thead>
+          <tbody id="officesTableBody">
+            <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:20px;">في انتظار اتصال هواتف المراقبين للمكاتب...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-size:16px;">مقارنة أصوات الأحزاب</h3>
+      <canvas id="partiesChart" height="150"></canvas>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-size:16px;">السجل الزمني المباشر</h3>
+      <div id="liveFeed">
+        <div style="color:var(--muted); font-size:13px; text-align:center; padding:12px;">لا توجد تحديثات واردة بعد</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- شاشة انضمام المراقب -->
+  <section id="viewObserverJoin" class="card hidden">
+    <h2 style="margin-top:0; font-size:19px;">ربط هاتف مراقب المكتب بغرفة المشرف</h2>
+    <div class="input-group">
+      <label>كود الغرفة (4 أرقام من هاتف المشرف)</label>
+      <input id="joinCodeInput" class="input-control" type="tel" maxlength="4" placeholder="مثال: 4829" style="text-align:center; font-size:24px; letter-spacing:6px;" />
+    </div>
+    <div class="input-group">
+      <label>اختر رقم المكتب (من بين المكاتب الأربعة)</label>
+      <select id="officeSelectInput" class="input-control">
+        <option value="مكتب 01">مكتب رقم 01</option>
+        <option value="مكتب 02">مكتب رقم 02</option>
+        <option value="مكتب 03">مكتب رقم 03</option>
+        <option value="مكتب 04">مكتب رقم 04</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label>عدد الناخبين المسجلين في هذا المكتب</label>
+      <input id="officeRegInput" class="input-control" type="number" min="1" value="300" />
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="connectObserver()">اتصال وبدء الرصد</button>
+      <button class="btn btn-outline" onclick="resetApp()">رجوع</button>
+    </div>
+  </section>
+
+  <!-- شاشة عداد المراقب للأحزاب والمصوتين -->
+  <section id="viewObserverCounter" class="hidden">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <div style="font-size:12px; color:var(--muted);">المكتب النشط حالياً</div>
+          <strong id="activeOfficeTitle" style="font-size:17px;">مكتب 01</strong>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="resetApp()">خروج</button>
+      </div>
+
+      <!-- ملخص مكتب المراقب -->
+      <div style="background:#f8fafc; border:1.5px solid var(--border); border-radius:14px; padding:14px; text-align:center; margin-bottom:14px;">
+        <div style="font-size:12px; color:var(--muted);">إجمالي المصوتين في هذا المكتب</div>
+        <div id="obsTotalVotesDisplay" style="font-size:36px; font-weight:900; color:var(--primary);">0</div>
+        <div id="obsPctDisplay" style="display:inline-block; margin-top:4px; padding:3px 12px; border-radius:999px; background:var(--primary-light); color:var(--primary-dark); font-weight:800; font-size:13px;">0.0% من مسجلي المكتب</div>
+      </div>
+
+      <h3 style="font-size:15px; margin-bottom:10px;">تسجيل الأصوات لكل حزب:</h3>
+
+      <!-- RND -->
+      <div class="party-counter-card">
+        <div class="party-info">
+          <h4 style="color:var(--rnd)">RND</h4>
+          <span>التجمع الوطني الديمقراطي</span>
+        </div>
+        <div class="party-controls">
+          <button class="p-btn" style="background:#64748b" onclick="changePartyVote('rnd', -1)">-</button>
+          <div id="val_rnd" class="p-val" style="color:var(--rnd)">0</div>
+          <button class="p-btn" style="background:var(--rnd)" onclick="changePartyVote('rnd', 1)">+</button>
+        </div>
+      </div>
+
+      <!-- FLN -->
+      <div class="party-counter-card">
+        <div class="party-info">
+          <h4 style="color:var(--fln)">FLN</h4>
+          <span>جبهة التحرير الوطني</span>
+        </div>
+        <div class="party-controls">
+          <button class="p-btn" style="background:#64748b" onclick="changePartyVote('fln', -1)">-</button>
+          <div id="val_fln" class="p-val" style="color:var(--fln)">0</div>
+          <button class="p-btn" style="background:var(--fln)" onclick="changePartyVote('fln', 1)">+</button>
+        </div>
+      </div>
+
+      <!-- MCN -->
+      <div class="party-counter-card">
+        <div class="party-info">
+          <h4 style="color:var(--mcn)">MCN</h4>
+          <span>المجتمع المدني</span>
+        </div>
+        <div class="party-controls">
+          <button class="p-btn" style="background:#64748b" onclick="changePartyVote('mcn', -1)">-</button>
+          <div id="val_mcn" class="p-val" style="color:var(--mcn)">0</div>
+          <button class="p-btn" style="background:var(--mcn)" onclick="changePartyVote('mcn', 1)">+</button>
+        </div>
+      </div>
+
+      <!-- HAMS -->
+      <div class="party-counter-card">
+        <div class="party-info">
+          <h4 style="color:var(--hams)">HAMS</h4>
+          <span>حركة مجتمع السلم</span>
+        </div>
+        <div class="party-controls">
+          <button class="p-btn" style="background:#64748b" onclick="changePartyVote('hams', -1)">-</button>
+          <div id="val_hams" class="p-val" style="color:var(--hams)">0</div>
+          <button class="p-btn" style="background:var(--hams)" onclick="changePartyVote('hams', 1)">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+  const TOTAL_REGISTERED_ELECTION = 1200;
+  const PEER_PREFIX = 'rasid-party-elect-2026-';
+  let peer = null;
+  let conn = null;
+  let roomCode = '';
+  let officesData = JSON.parse(localStorage.getItem('rasid_parties_offices') || '{}');
+  let chartInstance = null;
+
+  let obsState = {
+    id: localStorage.getItem('rasid_party_obs_id') || ('obs_' + Math.random().toString(36).slice(2, 8)),
+    name: localStorage.getItem('rasid_party_obs_name') || 'مكتب 01',
+    registered: parseInt(localStorage.getItem('rasid_party_obs_reg') || '300', 10),
+    votes: { rnd: 0, fln: 0, mcn: 0, hams: 0 }
+  };
+  
+  try {
+    const savedVotes = localStorage.getItem('rasid_party_obs_votes');
+    if (savedVotes) obsState.votes = JSON.parse(savedVotes);
+  } catch(e) {}
+
+  localStorage.setItem('rasid_party_obs_id', obsState.id);
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+  }
+
+  function setStatus(state, text) {
+    const dot = document.getElementById('connDot');
+    const txt = document.getElementById('connText');
+    dot.className = 'dot' + (state === 'online' ? ' online' : state === 'error' ? ' error' : '');
+    txt.textContent = text;
+  }
+
+  function hideAllViews() {
+    ['viewHome', 'viewSupervisor', 'viewObserverJoin', 'viewObserverCounter'].forEach(id => {
+      document.getElementById(id).classList.add('hidden');
+    });
+  }
+
+  function resetApp() {
+    if (peer) { peer.destroy(); peer = null; }
+    conn = null;
+    setStatus('', 'غير متصل');
+    hideAllViews();
+    document.getElementById('viewHome').classList.remove('hidden');
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const codeParam = params.get('room');
+    const roleParam = params.get('role');
+    if (codeParam && /^\d{4}$/.test(codeParam)) {
+      showObserverJoin();
+      document.getElementById('joinCodeInput').value = codeParam;
+    } else if (roleParam === 'observer') {
+      showObserverJoin();
+    }
+    if (obsState.name) document.getElementById('officeSelectInput').value = obsState.name;
+    if (obsState.registered) document.getElementById('officeRegInput').value = obsState.registered;
+  });
+
+  function getInviteUrl() {
+    const baseHref = window.location.href.split('#')[0].split('?')[0];
+    if (!baseHref || baseHref.startsWith('file://')) {
+      return `https://raw.githack.com/rasid-elect/app/main/Rasid_almusharaka.html?room=${encodeURIComponent(roomCode)}&role=observer`;
+    }
+    const url = new URL(baseHref);
+    url.searchParams.set('room', roomCode);
+    url.searchParams.set('role', 'observer');
+    return url.toString();
+  }
+
+  function startSupervisor() {
+    hideAllViews();
+    document.getElementById('viewSupervisor').classList.remove('hidden');
+    setStatus('', 'جاري إنشاء غرفة المتابعة...');
+
+    roomCode = localStorage.getItem('rasid_party_sup_code') || String(Math.floor(1000 + Math.random() * 9000));
+    localStorage.setItem('rasid_party_sup_code', roomCode);
+    document.getElementById('supRoomCode').textContent = roomCode;
+    document.getElementById('inviteLinkBox').textContent = getInviteUrl();
+
+    renderQRCode();
+    initChart();
+    renderSupervisorDashboard();
+
+    peer = new Peer(PEER_PREFIX + roomCode);
+    peer.on('open', () => {
+      setStatus('online', 'غرفة المتابعة نشطة (' + roomCode + ')');
+      showToast('تم تفعيل غرفة المتابعة للأحزاب والمكاتب الأربعة بنجاح');
+    });
+
+    peer.on('connection', (connection) => {
+      connection.on('data', (payload) => {
+        if (payload && payload.type === 'VOTE_UPDATE') {
+          officesData[payload.officeId] = {
+            name: payload.name,
+            votes: payload.votes,
+            registered: payload.registered,
+            updatedAt: new Date().toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          };
+          localStorage.setItem('rasid_parties_offices', JSON.stringify(officesData));
+          renderSupervisorDashboard();
+          
+          const totalOfficeVotes = (payload.votes.rnd || 0) + (payload.votes.fln || 0) + (payload.votes.mcn || 0) + (payload.votes.hams || 0);
+          addFeedLog(payload.name, totalOfficeVotes);
+          if (navigator.vibrate) navigator.vibrate(60);
+        }
+      });
+    });
+
+    peer.on('error', (err) => {
+      if (err.type === 'unavailable-id') {
+        localStorage.removeItem('rasid_party_sup_code');
+        startSupervisor();
+      } else {
+        setStatus('error', 'خطأ في الشبكة');
+      }
+    });
+  }
+
+  function renderQRCode() {
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: getInviteUrl(),
+      width: 130,
+      height: 130,
+      colorDark: '#0f172a',
+      colorLight: '#ffffff'
+    });
+  }
+
+  function shareWhatsApp() {
+    const inviteUrl = getInviteUrl();
+    const text = `انضم لغرفة متابعة الانتخابات (راصد الأحزاب والمكاتب الأربعة)\nرمز الغرفة: ${roomCode}\nرابط فتح التطبيق:\n${inviteUrl}`;
+    const waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+    window.location.href = waUrl;
+  }
+
+  function copyInviteLink() {
+    const link = getInviteUrl();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(() => {
+        showToast('تم نسخ رابط التطبيق المباشر');
+      }).catch(() => fallbackCopy(link));
+    } else {
+      fallbackCopy(link);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('تم نسخ رابط التطبيق المباشر');
+  }
+
+  function renderSupervisorDashboard() {
+    const list = Object.values(officesData);
+    document.getElementById('activeOfficesCount').textContent = list.length + ' / 4';
+
+    let totalVotesAll = 0;
+    let sumRnd = 0, sumFln = 0, sumMcn = 0, sumHams = 0;
+
+    list.forEach(o => {
+      const v = o.votes || {};
+      const r = Number(v.rnd || 0);
+      const f = Number(v.fln || 0);
+      const m = Number(v.mcn || 0);
+      const h = Number(v.hams || 0);
+      
+      sumRnd += r;
+      sumFln += f;
+      sumMcn += m;
+      sumHams += h;
+      totalVotesAll += (r + f + m + h);
+    });
+
+    document.getElementById('sumRnd').textContent = sumRnd.toLocaleString('ar-EG');
+    document.getElementById('sumFln').textContent = sumFln.toLocaleString('ar-EG');
+    document.getElementById('sumMcn').textContent = sumMcn.toLocaleString('ar-EG');
+    document.getElementById('sumHams').textContent = sumHams.toLocaleString('ar-EG');
+
+    const pct = ((totalVotesAll / TOTAL_REGISTERED_ELECTION) * 100).toFixed(1);
+    document.getElementById('totPct').textContent = pct + '%';
+    document.getElementById('totVotes').textContent = totalVotesAll.toLocaleString('ar-EG') + ' / ' + TOTAL_REGISTERED_ELECTION;
+
+    const tbody = document.getElementById('officesTableBody');
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:20px;">في انتظار اتصال هواتف المراقبين للمكاتب...</td></tr>';
+    } else {
+      tbody.innerHTML = list.map(o => {
+        const v = o.votes || {};
+        const r = Number(v.rnd || 0);
+        const f = Number(v.fln || 0);
+        const m = Number(v.mcn || 0);
+        const h = Number(v.hams || 0);
+        const tVotes = r + f + m + h;
+        const opct = o.registered > 0 ? ((tVotes / o.registered) * 100).toFixed(1) : '0.0';
+        return `<tr>
+          <td><strong>${o.name}</strong><br><span style="font-size:10px; color:var(--muted);">${o.updatedAt || ''}</span></td>
+          <td><strong>${tVotes}</strong></td>
+          <td><span style="color:var(--rnd); font-weight:700;">${r}</span></td>
+          <td><span style="color:var(--fln); font-weight:700;">${f}</span></td>
+          <td><span style="color:var(--mcn); font-weight:700;">${m}</span></td>
+          <td><span style="color:var(--hams); font-weight:700;">${h}</span></td>
+          <td><span class="role-badge">${opct}%</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    if (chartInstance) {
+      chartInstance.data.datasets[0].data = [sumRnd, sumFln, sumMcn, sumHams];
+      chartInstance.update();
+    }
+  }
+
+  function addFeedLog(name, totalVotes) {
+    const feed = document.getElementById('liveFeed');
+    if (feed.children.length === 1 && feed.children[0].textContent.includes('لا توجد')) {
+      feed.innerHTML = '';
+    }
+    const time = new Date().toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const div = document.createElement('div');
+    div.className = 'feed-item';
+    div.innerHTML = `<span><strong>${name}</strong>: تم تحديث الأصوات (إجمالي المصوتين بالمكتب: ${totalVotes})</span><span style="color:var(--muted); font-size:12px;">${time}</span>`;
+    feed.prepend(div);
+  }
+
+  function initChart() {
+    const ctx = document.getElementById('partiesChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['RND', 'FLN', 'MCN', 'HAMS'],
+        datasets: [{
+          label: 'إجمالي الأصوات',
+          data: [0, 0, 0, 0],
+          backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  function exportCSV() {
+    const list = Object.values(officesData);
+    if (!list.length) return showToast('لا توجد بيانات لتصديرها');
+    let csv = '\uFEFFاسم المكتب,المسجلين,RND,FLN,MCN,HAMS,إجمالي المصوتين,آخر تحديث\n';
+    list.forEach(o => {
+      const v = o.votes || {};
+      const t = (v.rnd||0) + (v.fln||0) + (v.mcn||0) + (v.hams||0);
+      csv += `"${o.name}",${o.registered},${v.rnd||0},${v.fln||0},${v.mcn||0},${v.hams||0},${t},"${o.updatedAt || ''}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'تقرير_الانتخابات_والاحزاب.csv';
+    link.click();
+  }
+
+  function showObserverJoin() {
+    hideAllViews();
+    document.getElementById('viewObserverJoin').classList.remove('hidden');
+  }
+
+  function connectObserver() {
+    const code = document.getElementById('joinCodeInput').value.trim();
+    const name = document.getElementById('officeSelectInput').value;
+    const reg = parseInt(document.getElementById('officeRegInput').value, 10) || 300;
+
+    if (!/^\d{4}$/.test(code)) {
+      return showToast('يرجى إدخال كود الغرفة المكون من 4 أرقام');
+    }
+
+    obsState.name = name;
+    obsState.registered = reg;
+    localStorage.setItem('rasid_party_obs_name', name);
+    localStorage.setItem('rasid_party_obs_reg', String(reg));
+
+    setStatus('', 'جاري الاتصال بغرفة المشرف...');
+    peer = new Peer();
+
+    peer.on('open', () => {
+      conn = peer.connect(PEER_PREFIX + code, { reliable: true });
+
+      conn.on('open', () => {
+        setStatus('online', 'متصل بغرفة المشرف (' + code + ')');
+        hideAllViews();
+        document.getElementById('viewObserverCounter').classList.remove('hidden');
+        document.getElementById('activeOfficeTitle').textContent = obsState.name;
+        updateObserverUI();
+        sendVoteUpdate();
+        showToast('تم ربط المكتب بنجاح');
+      });
+
+      conn.on('close', () => {
+        setStatus('error', 'انقطع الاتصال بغرفة المشرف');
+      });
+    });
+
+    peer.on('error', () => {
+      setStatus('error', 'تعذر الاتصال بالغرفة');
+      showToast('تأكد من صحة كود الغرفة');
+    });
+  }
+
+  function changePartyVote(partyKey, delta) {
+    obsState.votes[partyKey] = Math.max(0, (obsState.votes[partyKey] || 0) + delta);
+    localStorage.setItem('rasid_party_obs_votes', JSON.stringify(obsState.votes));
+    updateObserverUI();
+    sendVoteUpdate();
+    if (navigator.vibrate) navigator.vibrate(35);
+  }
+
+  function updateObserverUI() {
+    document.getElementById('val_rnd').textContent = obsState.votes.rnd;
+    document.getElementById('val_fln').textContent = obsState.votes.fln;
+    document.getElementById('val_mcn').textContent = obsState.votes.mcn;
+    document.getElementById('val_hams').textContent = obsState.votes.hams;
+
+    const totalVotes = obsState.votes.rnd + obsState.votes.fln + obsState.votes.mcn + obsState.votes.hams;
+    document.getElementById('obsTotalVotesDisplay').textContent = totalVotes;
+    
+    const pct = obsState.registered > 0 ? ((totalVotes / obsState.registered) * 100).toFixed(1) : '0.0';
+    document.getElementById('obsPctDisplay').textContent = `${pct}% من مسجلي ${obsState.name} (${obsState.registered} ناخب)`;
+  }
+
+  function sendVoteUpdate() {
+    if (conn && conn.open) {
+      conn.send({
+        type: 'VOTE_UPDATE',
+        officeId: obsState.id,
+        name: obsState.name,
+        votes: obsState.votes,
+        registered: obsState.registered
+      });
+    } else {
+      showToast('تم الحفظ محلياً (بانتظار عودة الاتصال)');
+    }
+  }
+</script>
+</body>
+</html>
